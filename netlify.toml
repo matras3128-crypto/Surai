@@ -1,0 +1,21 @@
+[build]
+  command = "npm install"
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
+# Все /api/* уходят в serverless-функцию
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Остальное — фронтенд
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
