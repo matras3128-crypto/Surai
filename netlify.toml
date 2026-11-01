@@ -5,16 +5,15 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@netlify/blobs"]
 
-# Все /api/* уходят в serverless-функцию
+# API редиректы
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
 
-# Остальное — фронтенд
+# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
