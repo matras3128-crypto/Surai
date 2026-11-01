@@ -1,46 +1,33 @@
-// Surai API — Express-сервер, готовый для Netlify Functions
 import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-// Локально раздаём статику сами; на Netlify это делает CDN
-if (!process.env.NETLIFY) {
-  app.use(express.static(path.join(__dirname, 'public')));
+// Локально раздаём public/
+if (!process.env.NETLIFY && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.use(express.static('public'));
 }
 
 const TAVILY = process.env.TAVILY_API_KEY || '';
 
-/* ========== ОТЗЫВЫ: Netlify Blobs (в облаке) / файл (локально) ========== */
-const DATA = path.join(__dirname, 'data');
-const REV_FILE = path.join(DATA, 'reviews.json');
-try { fs.mkdirSync(DATA, { recursive: true }); } catch {}
+/* ===== ОТЗЫВЫ: храним в /tmp (writable на AWS Lambda) ===== */
+const TMP_DIR = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME ? '/tmp' : './data';
+const REV_FILE = path.join(TMP_DIR, 'reviews.json');
+try { fs.mkdirSync(TMP_DIR, { recursive: true }); } catch {}
 
-let blobs = null;
-try {
-  const mod = await import('@netlify/blobs');
-  blobs = mod.getStore('surai-reviews');
-} catch {}
-
-async function loadRev() {
-  if (blobs) {
-    try { const raw = await blobs.get('reviews.json'); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
-  }
+function loadRev() {
   try { return JSON.parse(fs.readFileSync(REV_FILE, 'utf8')); } catch { return {}; }
 }
-async function saveRev(db) {
-  if (blobs) { try { await blobs.set('reviews.json', JSON.stringify(db)); return; } catch {} }
-  try { fs.writeFileSync(REV_FILE, JSON.stringify(db, null, 2)); } catch {}
+function saveRev(db) {
+  try { fs.writeFileSync(REV_FILE, JSON.stringify(db)); } catch (e) { console.error('saveRev:', e.message); }
 }
 
-/* ========== RATE LIMIT: 3 запроса/сек с IP ========== */
+/* ===== RATE LIMIT ===== */
 const hits = new Map();
 app.use('/api', (req, res, next) => {
   const now = Date.now();
@@ -50,20 +37,17 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-/* ========== ПРОКСИ-ПОМОЩНИК ========== */
 async function proxy(res, url, opts) {
   try {
     const r = await fetch(url, opts);
     const ct = r.headers.get('content-type') || '';
     if (ct.includes('json')) return res.status(r.status).json(await r.json());
     return res.status(r.status).send(await r.text());
-  } catch (e) { return res.status(502).json({ error: 'upstream: ' + e.message }); }
+  } catch (e) { return res.status(502).json({ error: String(e.message) }); }
 }
 
-/* ========== РОУТЫ ========== */
 app.get('/api/health', (req, res) => res.json({ ok: true, tavily: !!TAVILY }));
 
-// 🔒 Tavily — ключ только на сервере
 app.post('/api/search', (req, res) => {
   if (!TAVILY) return res.status(500).json({ error: 'TAVILY_API_KEY not set' });
   proxy(res, 'https://api.tavily.com/search', {
@@ -73,27 +57,21 @@ app.post('/api/search', (req, res) => {
   });
 });
 
-// Видео (Dailymotion)
 app.get('/api/videos', (req, res) => proxy(res,
   `https://api.dailymotion.com/videos?search=${encodeURIComponent(req.query.q || '')}&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=${Math.min(+req.query.limit || 20, 40)}&sort=relevance`));
 
-// Геокодинг (Photon)
 app.get('/api/geocode', (req, res) => proxy(res,
   `https://photon.komoot.io/api/?q=${encodeURIComponent(req.query.q || '')}&limit=${req.query.limit || 6}&lang=${req.query.lang || 'ru'}`));
 
-// Город по координатам
 app.get('/api/city', (req, res) => proxy(res,
   `https://photon.komoot.io/reverse?lon=${req.query.lon}&lat=${req.query.lat}&lang=ru`));
 
-// Погода (open-meteo)
 app.get('/api/weather', (req, res) => proxy(res,
   `https://api.open-meteo.com/v1/forecast?latitude=${req.query.lat}&longitude=${req.query.lon}&current=temperature_2m,weather_code`));
 
-// Маршруты (OSRM)
 app.get('/api/route', (req, res) => proxy(res,
   `https://router.project-osrm.org/route/v1/${req.query.profile || 'driving'}/${req.query.from};${req.query.to}?overview=full&geometries=geojson`));
 
-// Организации (Overpass) + фото из Wikipedia/Commons
 app.post('/api/poi', async (req, res) => {
   const { filter, bbox } = req.body || {};
   if (!filter) return res.status(400).json({ error: 'filter required' });
@@ -109,7 +87,6 @@ app.post('/api/poi', async (req, res) => {
     const els = (data.elements || [])
       .map(e => ({ osm: (e.type || '') + (e.id || ''), tags: e.tags || {}, lat: e.lat || e.center?.lat, lon: e.lon || e.center?.lon }))
       .filter(p => p.lat && p.lon);
-
     for (const p of els.slice(0, 10)) {
       const wp = p.tags.wikipedia;
       if (wp) {
@@ -130,30 +107,28 @@ app.post('/api/poi', async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
-// ⭐ Отзывы
-app.get('/api/reviews', async (req, res) => {
-  const db = await loadRev();
+app.get('/api/reviews', (req, res) => {
+  const db = loadRev();
   res.json(db[req.query.poi] || []);
 });
-app.post('/api/reviews', async (req, res) => {
+app.post('/api/reviews', (req, res) => {
   const { poi, name, rating, text } = req.body || {};
   if (!poi || !text || !+rating) return res.status(400).json({ error: 'poi, rating, text required' });
-  const db = await loadRev();
+  const db = loadRev();
   (db[poi] = db[poi] || []).push({
     name: String(name || 'Гость').slice(0, 40),
     rating: Math.max(1, Math.min(5, +rating | 0)),
     text: String(text).slice(0, 1000),
     date: new Date().toISOString()
   });
-  await saveRev(db);
+  saveRev(db);
   res.json({ ok: true, count: db[poi].length });
 });
 
-/* ========== ЭКСПОРТ ДЛЯ NETLIFY ========== */
 export { app };
 
-/* ========== ЛОКАЛЬНЫЙ ЗАПУСК (не на Netlify) ========== */
+// Локальный запуск
 if (!process.env.NETLIFY && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log('✅ Surai API: http://localhost:' + PORT));
-}
+                                                              }
