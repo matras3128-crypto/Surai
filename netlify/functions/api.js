@@ -1,4 +1,11 @@
-import serverless from 'serverless-http';
-import { app } from '../../server.js';
+const serverless = require('serverless-http');
 
-export const handler = serverless(app);
+let handlerPromise;
+
+exports.handler = async (event, context) => {
+  if (!handlerPromise) {
+    handlerPromise = import('../../server.js').then(mod => serverless(mod.app));
+  }
+  const handler = await handlerPromise;
+  return handler(event, context);
+};
