@@ -1,9 +1,4 @@
 {
   "name": "surai",
-  "version": "3.0.0",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "serverless-http": "^3.2.0"
-  }
+  "version": "5.0.0"
 }
