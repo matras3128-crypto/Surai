@@ -2,6 +2,7 @@ const fs = require('fs');
 
 const TAVILY = process.env.TAVILY_API_KEY || '';
 const REV_FILE = '/tmp/reviews.json';
+const UA = { 'User-Agent': 'SuraiSearch/1.0 (surai.kz)' };
 
 function send(res, code, obj) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -25,7 +26,6 @@ function readBody(req) {
 function loadRev() { try { return JSON.parse(fs.readFileSync(REV_FILE, 'utf8')); } catch { return {}; } }
 function saveRev(db) { try { fs.writeFileSync(REV_FILE, JSON.stringify(db)); } catch {} }
 
-const T = { signal: AbortSignal.timeout(9000) };
 async function proxy(url, opts) {
   const r = await fetch(url, Object.assign({}, opts, { signal: AbortSignal.timeout(9000) }));
   const ct = r.headers.get('content-type') || '';
@@ -53,30 +53,54 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
-    // ВИДЕО: отдаём МАССИВ (было {list:[...]} — фронт не понимал)
+    /* ===== ВИДЕО: Dailymotion → зеркала Invidious (YouTube) ===== */
     if (p === '/api/videos') {
+      const qq = q.get('q') || '';
       try {
-        const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(q.get('q') || '') + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=' + Math.min(+(q.get('limit') || 20), 40) + '&sort=relevance');
+        const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(qq) + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=24&sort=relevance');
         const list = (r.data && r.data.list) || [];
-        return send(res, 200, list);
-      } catch (e) { return send(res, 200, []); }
+        if (list.length) return send(res, 200, list);
+      } catch (e) {}
+      const mirrors = ['https://inv.nadeko.net', 'https://yewtu.be', 'https://invidious.nerdvpn.de'];
+      for (const m of mirrors) {
+        try {
+          const r = await proxy(m + '/api/v1/search?q=' + encodeURIComponent(qq) + '&type=video', { headers: UA });
+          const arr = Array.isArray(r.data) ? r.data : [];
+          if (arr.length) {
+            return send(res, 200, arr.slice(0, 24).map(v => ({
+              title: v.title,
+              thumbnail_720_url: (v.videoThumbnails && (v.videoThumbnails.find(t => t.quality === 'medium') || v.videoThumbnails[0]) || {}).url,
+              thumbnail_360_url: (v.videoThumbnails && v.videoThumbnails[v.videoThumbnails.length - 1] || {}).url,
+              channel: v.author,
+              url: 'https://www.youtube.com/watch?v=' + v.videoId,
+              duration: v.lengthSeconds
+            })));
+          }
+        } catch (e) {}
+      }
+      return send(res, 200, []);
     }
 
-    // ГЕОКОДИНГ: photon, при сбое — nominatim
+    /* ===== ГЕОКОДИНГ: Photon → Nominatim ===== */
     if (p === '/api/geocode') {
+      const qq = q.get('q') || '';
+      const lim = q.get('limit') || 6;
       try {
-        const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(q.get('q') || '') + '&limit=' + (q.get('limit') || 6) + '&lang=' + (q.get('lang') || 'ru'));
-        return send(res, r.status, r.data);
-      } catch (e) {
-        const r2 = await proxy('https://nominatim.openstreetmap.org/search?format=json&limit=' + (q.get('limit') || 6) + '&q=' + encodeURIComponent(q.get('q') || ''));
-        const feats = (Array.isArray(r2.data) ? r2.data : []).map(x => ({ geometry: { coordinates: [+x.lon, +x.lat] }, properties: { name: x.display_name, osm_value: x.type } }));
-        return send(res, 200, { features: feats });
-      }
+        const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(qq) + '&limit=' + lim + '&lang=' + (q.get('lang') || 'ru'), { headers: UA });
+        if (r.status === 200 && r.data && r.data.features) return send(res, 200, r.data);
+      } catch (e) {}
+      try {
+        const r2 = await proxy('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=' + lim + '&countrycodes=kz&q=' + encodeURIComponent(qq), { headers: UA });
+        const arr = Array.isArray(r2.data) ? r2.data : [];
+        return send(res, 200, { features: arr.map(x => ({ geometry: { coordinates: [+x.lon, +x.lat] }, properties: { name: x.display_name, osm_value: x.type } })) });
+      } catch (e) { return send(res, 200, { features: [] }); }
     }
 
     if (p === '/api/city') {
-      const r = await proxy('https://photon.komoot.io/reverse?lon=' + (q.get('lon') || 0) + '&lat=' + (q.get('lat') || 0) + '&lang=ru');
-      return send(res, r.status, r.data);
+      try {
+        const r = await proxy('https://photon.komoot.io/reverse?lon=' + (q.get('lon') || 0) + '&lat=' + (q.get('lat') || 0) + '&lang=ru', { headers: UA });
+        return send(res, r.status, r.data);
+      } catch (e) { return send(res, 200, { features: [] }); }
     }
 
     if (p === '/api/weather') {
@@ -89,7 +113,7 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
-    // POI: два зеркала Overpass, если первое тупит
+    /* ===== POI: два зеркала Overpass ===== */
     if (p === '/api/poi' && req.method === 'POST') {
       const body = await readBody(req);
       const filter = body.filter;
