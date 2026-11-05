@@ -6,6 +6,8 @@ const REV_FILE = '/tmp/reviews.json';
 function send(res, code, obj) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Cache-Control', 'no-store');
   res.statusCode = code;
   res.end(JSON.stringify(obj));
@@ -15,16 +17,17 @@ function readBody(req) {
   return new Promise(resolve => {
     let d = '';
     req.on('data', c => { d += c; if (d.length > 1e6) req.destroy(); });
-    req.on('end', () => { try { resolve(d ? JSON.parse(d) : {}); } catch (e) { resolve({}); } });
+    req.on('end', () => { try { resolve(d ? JSON.parse(d) : {}); } catch { resolve({}); } });
     req.on('error', () => resolve({}));
   });
 }
 
-function loadRev() { try { return JSON.parse(fs.readFileSync(REV_FILE, 'utf8')); } catch (e) { return {}; } }
-function saveRev(db) { try { fs.writeFileSync(REV_FILE, JSON.stringify(db)); } catch (e) {} }
+function loadRev() { try { return JSON.parse(fs.readFileSync(REV_FILE, 'utf8')); } catch { return {}; } }
+function saveRev(db) { try { fs.writeFileSync(REV_FILE, JSON.stringify(db)); } catch {} }
 
+const T = { signal: AbortSignal.timeout(9000) };
 async function proxy(url, opts) {
-  const r = await fetch(url, opts);
+  const r = await fetch(url, Object.assign({}, opts, { signal: AbortSignal.timeout(9000) }));
   const ct = r.headers.get('content-type') || '';
   return { status: r.status, data: ct.includes('json') ? await r.json() : await r.text() };
 }
@@ -34,13 +37,7 @@ module.exports = async (req, res) => {
   const p = url.pathname;
   const q = url.searchParams;
 
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.statusCode = 204;
-    return res.end();
-  }
+  if (req.method === 'OPTIONS') return send(res, 204, {});
 
   try {
     if (p === '/api/health') return send(res, 200, { ok: true, tavily: !!TAVILY });
@@ -56,14 +53,25 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
+    // ВИДЕО: отдаём МАССИВ (было {list:[...]} — фронт не понимал)
     if (p === '/api/videos') {
-      const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(q.get('q') || '') + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=' + Math.min(+(q.get('limit') || 20), 40) + '&sort=relevance');
-      return send(res, r.status, r.data);
+      try {
+        const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(q.get('q') || '') + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=' + Math.min(+(q.get('limit') || 20), 40) + '&sort=relevance');
+        const list = (r.data && r.data.list) || [];
+        return send(res, 200, list);
+      } catch (e) { return send(res, 200, []); }
     }
 
+    // ГЕОКОДИНГ: photon, при сбое — nominatim
     if (p === '/api/geocode') {
-      const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(q.get('q') || '') + '&limit=' + (q.get('limit') || 6) + '&lang=' + (q.get('lang') || 'ru'));
-      return send(res, r.status, r.data);
+      try {
+        const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(q.get('q') || '') + '&limit=' + (q.get('limit') || 6) + '&lang=' + (q.get('lang') || 'ru'));
+        return send(res, r.status, r.data);
+      } catch (e) {
+        const r2 = await proxy('https://nominatim.openstreetmap.org/search?format=json&limit=' + (q.get('limit') || 6) + '&q=' + encodeURIComponent(q.get('q') || ''));
+        const feats = (Array.isArray(r2.data) ? r2.data : []).map(x => ({ geometry: { coordinates: [+x.lon, +x.lat] }, properties: { name: x.display_name, osm_value: x.type } }));
+        return send(res, 200, { features: feats });
+      }
     }
 
     if (p === '/api/city') {
@@ -81,18 +89,22 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
+    // POI: два зеркала Overpass, если первое тупит
     if (p === '/api/poi' && req.method === 'POST') {
       const body = await readBody(req);
       const filter = body.filter;
       const bbox = body.bbox || '46.5,40.5,87.3,55.4';
       if (!filter) return send(res, 400, { error: 'filter required' });
-      const oq = '[out:json][timeout:9];(node[' + filter + '](' + bbox + ');way[' + filter + '](' + bbox + '););out center tags 30;';
-      const r = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(oq)
-      });
-      const data = await r.json();
+      const oq = '[out:json][timeout:8];(node[' + filter + '](' + bbox + ');way[' + filter + '](' + bbox + '););out center tags 30;';
+      const mirrors = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+      let data = null;
+      for (const m of mirrors) {
+        try {
+          const r = await fetch(m, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(oq), signal: AbortSignal.timeout(9000) });
+          if (r.ok) { data = await r.json(); break; }
+        } catch (e) {}
+      }
+      if (!data) return send(res, 200, []);
       const els = (data.elements || [])
         .map(e => ({ osm: (e.type || '') + (e.id || ''), tags: e.tags || {}, lat: e.lat || (e.center && e.center.lat), lon: e.lon || (e.center && e.center.lon) }))
         .filter(x => x.lat && x.lon);
