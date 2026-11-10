@@ -34,11 +34,26 @@ async function proxy(url, opts) {
 
 /* ===== КОНТЕНТ-ФИЛЬТР: 18+, насилие, наркотики, оружие ===== */
 const BAD_WORDS = [
-  'порн','porn','xxx','nsfw','onlyfans','эротик','erotica','хентай','hentai','минет','трах',
-  'секс видео','sex video','child porn','лоли','loli','зоофил','bestial',
-  'как убить','убить человека','как сделать бомбу','взрывчатк','бомбу в школу','массовое убийств',
-  'купить наркот','наркотик','марихуан','метамфетамин','кокаин купить','спайс','мефедрон','героин купить',
-  'порно','зорлау','есірткі','өлтіру'
+  // 18+ рус
+  'порн','порнуха','порно','xxx','nsfw','onlyfans','эротик','хентай','минет','трах','секс','сиськи','голая','голое','обнаж',
+  'интим','шлюх','проститут','еблю','дроч','онанизм','зоофил','педофил','лоли','child porn','rape','изнасилов',
+  // 18+ eng
+  'porn','hentai','nsfw','xxx','sex video','adult','erotic','bestial','loli','rape','nude','naked','fapping','milf','hentai',
+  // 18+ қаз
+  'зорлау','порно','жыныстық','жалаңаш','секс','интим','есірткі',
+  // насилие
+  'как убить','убить человека','убийство','как сделать бомбу','бомба','взрывчатка','бомбу в школу','массовое убийств',
+  'расстрел','теракт','теракта','shoot','bomb','massacre','murder','suicide method','как покончить',
+  // наркотики
+  'наркотик','наркотики','купить наркот','марихуан','метамфетамин','кокаин купить','спайс','мефедрон','героин купить','шишки',
+  'амфетамин','лсд','экстази','соль для ванн купить','соли для ванн','закладк','кладмен','наркот','drug buy','weed buy',
+  // оружие
+  'купить оружие','купить пистолет','купить автомат','винтовку купить','травмат купить','гранату купить','оружие купить','пистолет купить',
+  'buy gun','buy weapon',
+  // суицид (деликатно)
+  'как покончить собой','способы суицид','суицид способ','как повеситься','как отравиться',
+  // прочее
+  'child abuse','детское порно','зоофилия','некрофил'
 ];
 function isBlocked(q) {
   const s = String(q || '').toLowerCase();
@@ -59,7 +74,7 @@ module.exports = async (req, res) => {
     if (p === '/api/search' && req.method === 'POST') {
       if (!TAVILY) return send(res, 500, { error: 'TAVILY_API_KEY not set' });
       const body = await readBody(req);
-      if (isBlocked(body.query)) return send(res, 200, { answer: BLOCK_MSG, results: [], images: [] });
+      if (isBlocked(body.query)) return send(res, 200, { blocked: true, answer: BLOCK_MSG, results: [], images: [] });
       const r = await proxy('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TAVILY },
@@ -68,10 +83,24 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
-    /* ===== ВИДЕО: Dailymotion → зеркала Invidious (YouTube) ===== */
+    /* ===== КАРТИНКИ: блокируем полностью при запрещённом запросе ===== */
+    if (p === '/api/images') {
+      const qq = q.get('q') || '';
+      if (isBlocked(qq)) return send(res, 200, { blocked: true, images: [] });
+      try {
+        const r = await proxy('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TAVILY },
+          body: JSON.stringify({ query: qq, include_images: true, max_results: 30 })
+        });
+        return send(res, r.status, r.data);
+      } catch (e) { return send(res, 200, { images: [] }); }
+    }
+
+    /* ===== ВИДЕО ===== */
     if (p === '/api/videos') {
       const qq = q.get('q') || '';
-      if (isBlocked(qq)) return send(res, 200, []);
+      if (isBlocked(qq)) return send(res, 200, { blocked: true, videos: [] });
       try {
         const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(qq) + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=24&sort=relevance');
         const list = (r.data && r.data.list) || [];
@@ -97,10 +126,10 @@ module.exports = async (req, res) => {
       return send(res, 200, []);
     }
 
-    /* ===== ГЕОКОДИНГ: Photon → Nominatim ===== */
+    /* ===== ГЕОКОДИНГ ===== */
     if (p === '/api/geocode') {
       const qq = q.get('q') || '';
-      if (isBlocked(qq)) return send(res, 200, { features: [] });
+      if (isBlocked(qq)) return send(res, 200, { blocked: true, features: [] });
       const lim = q.get('limit') || 6;
       try {
         const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(qq) + '&limit=' + lim + '&lang=' + (q.get('lang') || 'ru'), { headers: UA });
@@ -130,11 +159,11 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
-    /* ===== POI: два зеркала Overpass ===== */
+    /* ===== POI ===== */
     if (p === '/api/poi' && req.method === 'POST') {
       const body = await readBody(req);
       const filter = body.filter;
-      if (isBlocked(filter)) return send(res, 200, []);
+      if (isBlocked(filter)) return send(res, 200, { blocked: true, poi: [] });
       const bbox = body.bbox || '46.5,40.5,87.3,55.4';
       if (!filter) return send(res, 400, { error: 'filter required' });
       const oq = '[out:json][timeout:8];(node[' + filter + '](' + bbox + ');way[' + filter + '](' + bbox + '););out center tags 30;';
