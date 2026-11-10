@@ -31,6 +31,7 @@ async function proxy(url, opts) {
   const ct = r.headers.get('content-type') || '';
   return { status: r.status, data: ct.includes('json') ? await r.json() : await r.text() };
 }
+
 /* ===== КОНТЕНТ-ФИЛЬТР: 18+, насилие, наркотики, оружие ===== */
 const BAD_WORDS = [
   'порн','porn','xxx','nsfw','onlyfans','эротик','erotica','хентай','hentai','минет','трах',
@@ -44,6 +45,7 @@ function isBlocked(q) {
   return BAD_WORDS.some(w => s.includes(w));
 }
 const BLOCK_MSG = '⛔ Запрос отклонён политикой безопасности Surai: мы не выдаём контент 18+, сцены насилия, продажу наркотиков и оружия.';
+
 module.exports = async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
@@ -57,6 +59,7 @@ module.exports = async (req, res) => {
     if (p === '/api/search' && req.method === 'POST') {
       if (!TAVILY) return send(res, 500, { error: 'TAVILY_API_KEY not set' });
       const body = await readBody(req);
+      if (isBlocked(body.query)) return send(res, 200, { answer: BLOCK_MSG, results: [], images: [] });
       const r = await proxy('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TAVILY },
@@ -68,6 +71,7 @@ module.exports = async (req, res) => {
     /* ===== ВИДЕО: Dailymotion → зеркала Invidious (YouTube) ===== */
     if (p === '/api/videos') {
       const qq = q.get('q') || '';
+      if (isBlocked(qq)) return send(res, 200, []);
       try {
         const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(qq) + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=24&sort=relevance');
         const list = (r.data && r.data.list) || [];
@@ -96,6 +100,7 @@ module.exports = async (req, res) => {
     /* ===== ГЕОКОДИНГ: Photon → Nominatim ===== */
     if (p === '/api/geocode') {
       const qq = q.get('q') || '';
+      if (isBlocked(qq)) return send(res, 200, { features: [] });
       const lim = q.get('limit') || 6;
       try {
         const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(qq) + '&limit=' + lim + '&lang=' + (q.get('lang') || 'ru'), { headers: UA });
@@ -129,6 +134,7 @@ module.exports = async (req, res) => {
     if (p === '/api/poi' && req.method === 'POST') {
       const body = await readBody(req);
       const filter = body.filter;
+      if (isBlocked(filter)) return send(res, 200, []);
       const bbox = body.bbox || '46.5,40.5,87.3,55.4';
       if (!filter) return send(res, 400, { error: 'filter required' });
       const oq = '[out:json][timeout:8];(node[' + filter + '](' + bbox + ');way[' + filter + '](' + bbox + '););out center tags 30;';
@@ -168,6 +174,7 @@ module.exports = async (req, res) => {
     if (p === '/api/reviews' && req.method === 'POST') {
       const b = await readBody(req);
       if (!b.poi || !b.text || !+b.rating) return send(res, 400, { error: 'poi, rating, text required' });
+      if (isBlocked(b.text) || isBlocked(b.name)) return send(res, 200, { ok: false, error: 'Контент заблокирован' });
       const db = loadRev();
       (db[b.poi] = db[b.poi] || []).push({
         name: String(b.name || 'Гость').slice(0, 40),
