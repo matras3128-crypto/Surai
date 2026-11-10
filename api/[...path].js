@@ -31,7 +31,19 @@ async function proxy(url, opts) {
   const ct = r.headers.get('content-type') || '';
   return { status: r.status, data: ct.includes('json') ? await r.json() : await r.text() };
 }
-
+/* ===== КОНТЕНТ-ФИЛЬТР: 18+, насилие, наркотики, оружие ===== */
+const BAD_WORDS = [
+  'порн','porn','xxx','nsfw','onlyfans','эротик','erotica','хентай','hentai','минет','трах',
+  'секс видео','sex video','child porn','лоли','loli','зоофил','bestial',
+  'как убить','убить человека','как сделать бомбу','взрывчатк','бомбу в школу','массовое убийств',
+  'купить наркот','наркотик','марихуан','метамфетамин','кокаин купить','спайс','мефедрон','героин купить',
+  'порно','зорлау','есірткі','өлтіру'
+];
+function isBlocked(q) {
+  const s = String(q || '').toLowerCase();
+  return BAD_WORDS.some(w => s.includes(w));
+}
+const BLOCK_MSG = '⛔ Запрос отклонён политикой безопасности Surai: мы не выдаём контент 18+, сцены насилия, продажу наркотиков и оружия.';
 module.exports = async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
