@@ -32,32 +32,81 @@ async function proxy(url, opts) {
   return { status: r.status, data: ct.includes('json') ? await r.json() : await r.text() };
 }
 
+/* ===== КАЗАХСКИЙ NLP: транслитерация, синонимы, морфология ===== */
+const LAT2CYR = {
+  'a':'а','b':'б','c':'ц','d':'д','e':'е','f':'ф','g':'г','h':'х','i':'и','j':'ж','k':'к','l':'л','m':'м',
+  'n':'н','o':'о','p':'п','q':'қ','r':'р','s':'с','t':'т','u':'у','v':'в','w':'в','x':'кс','y':'ы','z':'з',
+  'á':'ә','ǵ':'ғ','ń':'ң','ó':'ө','ú':'ұ','ý':'ү','ı':'і','ä':'ә','ğ':'ғ','ñ':'ң','ö':'ө','ü':'ұ','ş':'ш','ç':'ч'
+};
+function lat2cyr(s){ return String(s).replace(/[a-záǵńóúýıäğñöüşç]/gi, c => LAT2CYR[c.toLowerCase()] || c); }
+
+const SIMPLIFY = {'ә':'а','ғ':'г','қ':'к','ң':'н','ө':'о','ұ':'у','ү':'у','һ':'х','і':'и'};
+function simplify(s){ return String(s).replace(/[әғқңөұүһі]/g, c => SIMPLIFY[c]); }
+
+const KZ_RU = {
+  'кафе':'мейрамхана дәмхана restaurant','мейрамхана':'кафе restaurant','дәмхана':'кафе',
+  'аптека':'дәріхана pharmacy','дәріхана':'аптека pharmacy',
+  'школа':'мектеп school','мектеп':'школа school',
+  'больница':'аурухана hospital','аурухана':'больница hospital',
+  'магазин':'дүкен shop','дүкен':'магазин shop',
+  'ресторан':'мейрамхана restaurant',
+  'гостиница':'қонақүй hotel','қонақүй':'гостиница hotel',
+  'аэропорт':'әуежай airport','әуежай':'аэропорт airport',
+  'музей':'мұражай museum','мұражай':'музей museum',
+  'парк':'саябақ park','саябақ':'парк park',
+  'рынок':'базар market','базар':'рынок market',
+  'мечеть':'мешіт mosque','мешіт':'мечеть mosque',
+  'церковь':'шіркеу church','шіркеу':'церковь church',
+  'как добраться':'қалай жетуге болады how to get','қалай жетуге болады':'как добраться how to get',
+  'где находится':'қайда орналасқан where is','қайда орналасқан':'где находится where is',
+  'часы работы':'жұмыс уақыты opening hours','жұмыс уақыты':'часы работы opening hours',
+  'банкомат':'банкомат atm','atm':'банкомат',
+  'заправка':'жанармай бекеті gas station','жанармай бекеті':'заправка gas station',
+  'туалет':'дәретхана restroom','дәретхана':'туалет restroom',
+  'почта':'пошта post office','пошта':'почта post office'
+};
+
+function expandQuery(q){
+  const s = String(q).toLowerCase();
+  const extra = [];
+  for(const phrase in KZ_RU){
+    if(s.includes(phrase)) extra.push(KZ_RU[phrase]);
+  }
+  return extra.length ? q + ' ' + [...new Set(extra.join(' ').split(/\s+/))].join(' ') : q;
+}
+
+const KZ_ENDINGS = ['ға','ге','қа','ке','да','де','та','те','ның','нің','дың','дің','тың','тің','лар','лер','дар','дер','тар','тер','мен','бен','пен','нан','нен','дан','ден','тан','тен'];
+function stemKz(w){
+  for(const e of KZ_ENDINGS){
+    if(w.length > e.length + 2 && w.endsWith(e)) return w.slice(0, -e.length);
+  }
+  return w;
+}
+
+function kzNormalize(q){
+  let s = lat2cyr(q);
+  s = expandQuery(s);
+  return s;
+}
+
 /* ===== КОНТЕНТ-ФИЛЬТР: 18+, насилие, наркотики, оружие ===== */
 const BAD_WORDS = [
-  // 18+ рус
   'порн','порнуха','порно','xxx','nsfw','onlyfans','эротик','хентай','минет','трах','секс','сиськи','голая','голое','обнаж',
   'интим','шлюх','проститут','еблю','дроч','онанизм','зоофил','педофил','лоли','child porn','rape','изнасилов',
-  // 18+ eng
-  'porn','hentai','nsfw','xxx','sex video','adult','erotic','bestial','loli','rape','nude','naked','fapping','milf','hentai',
-  // 18+ қаз
-  'зорлау','порно','жыныстық','жалаңаш','секс','интим','есірткі',
-  // насилие
+  'porn','hentai','sex video','adult','erotic','bestial','loli','rape','nude','naked','fapping','milf',
+  'зорлау','жыныстық','жалаңаш','есірткі',
   'как убить','убить человека','убийство','как сделать бомбу','бомба','взрывчатка','бомбу в школу','массовое убийств',
   'расстрел','теракт','теракта','shoot','bomb','massacre','murder','suicide method','как покончить',
-  // наркотики
   'наркотик','наркотики','купить наркот','марихуан','метамфетамин','кокаин купить','спайс','мефедрон','героин купить','шишки',
-  'амфетамин','лсд','экстази','соль для ванн купить','соли для ванн','закладк','кладмен','наркот','drug buy','weed buy',
-  // оружие
+  'амфетамин','лсд','экстази','закладк','кладмен','наркот','drug buy','weed buy',
   'купить оружие','купить пистолет','купить автомат','винтовку купить','травмат купить','гранату купить','оружие купить','пистолет купить',
   'buy gun','buy weapon',
-  // суицид (деликатно)
   'как покончить собой','способы суицид','суицид способ','как повеситься','как отравиться',
-  // прочее
   'child abuse','детское порно','зоофилия','некрофил'
 ];
 function isBlocked(q) {
-  const s = String(q || '').toLowerCase();
-  return BAD_WORDS.some(w => s.includes(w));
+  const s = simplify(String(q || '').toLowerCase());
+  return BAD_WORDS.some(w => s.includes(simplify(w)));
 }
 const BLOCK_MSG = '⛔ Запрос отклонён политикой безопасности Surai: мы не выдаём контент 18+, сцены насилия, продажу наркотиков и оружия.';
 
@@ -69,12 +118,14 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204, {});
 
   try {
-    if (p === '/api/health') return send(res, 200, { ok: true, tavily: !!TAVILY });
+    if (p === '/api/health') return send(res, 200, { ok: true, tavily: !!TAVILY, kz: true });
 
     if (p === '/api/search' && req.method === 'POST') {
       if (!TAVILY) return send(res, 500, { error: 'TAVILY_API_KEY not set' });
       const body = await readBody(req);
       if (isBlocked(body.query)) return send(res, 200, { blocked: true, answer: BLOCK_MSG, results: [], images: [] });
+      // Улучшение казахского: транслитерация + синонимы
+      body.query = kzNormalize(body.query);
       const r = await proxy('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TAVILY },
@@ -83,33 +134,33 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
-    /* ===== КАРТИНКИ: блокируем полностью при запрещённом запросе ===== */
     if (p === '/api/images') {
       const qq = q.get('q') || '';
       if (isBlocked(qq)) return send(res, 200, { blocked: true, images: [] });
+      const expanded = kzNormalize(qq);
       try {
         const r = await proxy('https://api.tavily.com/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TAVILY },
-          body: JSON.stringify({ query: qq, include_images: true, max_results: 30 })
+          body: JSON.stringify({ query: expanded, include_images: true, max_results: 30 })
         });
         return send(res, r.status, r.data);
       } catch (e) { return send(res, 200, { images: [] }); }
     }
 
-    /* ===== ВИДЕО ===== */
     if (p === '/api/videos') {
       const qq = q.get('q') || '';
       if (isBlocked(qq)) return send(res, 200, { blocked: true, videos: [] });
+      const expanded = kzNormalize(qq);
       try {
-        const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(qq) + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=24&sort=relevance');
+        const r = await proxy('https://api.dailymotion.com/videos?search=' + encodeURIComponent(expanded) + '&fields=id,title,thumbnail_720_url,thumbnail_360_url,channel,url,duration,views_total&limit=24&sort=relevance');
         const list = (r.data && r.data.list) || [];
         if (list.length) return send(res, 200, list);
       } catch (e) {}
       const mirrors = ['https://inv.nadeko.net', 'https://yewtu.be', 'https://invidious.nerdvpn.de'];
       for (const m of mirrors) {
         try {
-          const r = await proxy(m + '/api/v1/search?q=' + encodeURIComponent(qq) + '&type=video', { headers: UA });
+          const r = await proxy(m + '/api/v1/search?q=' + encodeURIComponent(expanded) + '&type=video', { headers: UA });
           const arr = Array.isArray(r.data) ? r.data : [];
           if (arr.length) {
             return send(res, 200, arr.slice(0, 24).map(v => ({
@@ -126,13 +177,18 @@ module.exports = async (req, res) => {
       return send(res, 200, []);
     }
 
-    /* ===== ГЕОКОДИНГ ===== */
     if (p === '/api/geocode') {
-      const qq = q.get('q') || '';
+      let qq = q.get('q') || '';
       if (isBlocked(qq)) return send(res, 200, { blocked: true, features: [] });
+      qq = lat2cyr(qq);
       const lim = q.get('limit') || 6;
+      // Сначала казахский, потом русский
       try {
-        const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(qq) + '&limit=' + lim + '&lang=' + (q.get('lang') || 'ru'), { headers: UA });
+        const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(qq) + '&limit=' + lim + '&lang=kz', { headers: UA });
+        if (r.status === 200 && r.data && r.data.features && r.data.features.length) return send(res, 200, r.data);
+      } catch (e) {}
+      try {
+        const r = await proxy('https://photon.komoot.io/api/?q=' + encodeURIComponent(qq) + '&limit=' + lim + '&lang=ru', { headers: UA });
         if (r.status === 200 && r.data && r.data.features) return send(res, 200, r.data);
       } catch (e) {}
       try {
@@ -144,7 +200,7 @@ module.exports = async (req, res) => {
 
     if (p === '/api/city') {
       try {
-        const r = await proxy('https://photon.komoot.io/reverse?lon=' + (q.get('lon') || 0) + '&lat=' + (q.get('lat') || 0) + '&lang=ru', { headers: UA });
+        const r = await proxy('https://photon.komoot.io/reverse?lon=' + (q.get('lon') || 0) + '&lat=' + (q.get('lat') || 0) + '&lang=kz', { headers: UA });
         return send(res, r.status, r.data);
       } catch (e) { return send(res, 200, { features: [] }); }
     }
@@ -159,7 +215,6 @@ module.exports = async (req, res) => {
       return send(res, r.status, r.data);
     }
 
-    /* ===== POI ===== */
     if (p === '/api/poi' && req.method === 'POST') {
       const body = await readBody(req);
       const filter = body.filter;
