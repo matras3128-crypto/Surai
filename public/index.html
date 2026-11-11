@@ -15,11 +15,11 @@
 <meta name="yandex-verification" content="6f67e54a457fe8ba" />
 <!-- ===== Open Graph (превью в Telegram, WhatsApp, VK) ===== -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Surai — казахстанский поисковик">
+<meta property="og:title" content="Tabu — казахстанский поисковик">
 <meta property="og:description" content="Поиск, карты, видео и ИИ-ответы. Работает на русском и казахском.">
 <meta property="og:url" content="https://surai.vercel.app/">
 <meta property="og:image" content="https://surai.vercel.app/og.png">
-<meta property="og:site_name" content="Surai">
+<meta property="og:site_name" content="Tabu">
 <meta property="og:locale" content="ru_RU">
 
 <!-- ===== Twitter Card ===== -->
@@ -47,7 +47,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
-<script>(function(){try{var t=JSON.parse(localStorage.getItem('surai.theme'));if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('tabu.theme'));if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
 <style>
 :root{--bg:#f2f9f9;--surface:#fff;--surface-2:#e8f4f4;--border:#d3e7e7;--text:#17302f;--muted:#5d7d7c;--accent:#1c928c;--accent-hover:#167d78;--accent-soft:#dbf0ee;--accent-ink:#126f6a;--on-accent:#fff;--link:#1b6c92;--glow:rgba(42,166,160,.13);--glow2:rgba(74,168,224,.10);--g1:#1c928c;--g2:#3b93cf;--shadow:0 2px 14px rgba(23,48,47,.07);--shadow-lg:0 18px 50px rgba(23,48,47,.18);--danger:#c0473f;--map-accent:#e74c3c;--ad:#e67e22;--star:#ff9800}
 :root[data-theme="dark"]{--bg:#0e1819;--surface:#142224;--surface-2:#1a2d2f;--border:#25393b;--text:#d9ecea;--muted:#8aa9a7;--accent:#3fbdb4;--accent-hover:#58d0c7;--accent-soft:#17383a;--accent-ink:#76dcd4;--on-accent:#06201e;--link:#86d8e6;--glow:rgba(63,189,180,.11);--glow2:rgba(80,160,220,.08);--g1:#52cdc4;--g2:#6cb6ee;--shadow:0 2px 14px rgba(0,0,0,.35);--shadow-lg:0 18px 50px rgba(0,0,0,.55);--danger:#ef7c74;--map-accent:#ff6b5c;--ad:#f39c12;--star:#ffb74d}
@@ -303,7 +303,7 @@ select{border:1px solid var(--border);background:var(--surface-2);border-radius:
 <template id="tplSearch">
   <form class="search-form" role="search" autocomplete="off">
     <i class="ico lead" data-ico="search"></i>
-    <input type="text" name="q" data-i18n-ph="placeholder" enterkeyhint="search" autocapitalize="off" spellcheck="false" maxlength="400" aria-label="Surai">
+    <input type="text" name="q" data-i18n-ph="placeholder" enterkeyhint="search" autocapitalize="off" spellcheck="false" maxlength="400" aria-label="Tabu">
     <button type="button" class="icon-btn clear" hidden><i class="ico" data-ico="x"></i></button>
     <button type="button" class="icon-btn mic"><i class="ico" data-ico="mic"></i></button>
     <button type="submit" class="go"><i class="ico" data-ico="search"></i><span data-i18n="find"></span></button>
@@ -315,7 +315,7 @@ select{border:1px solid var(--border);background:var(--surface-2);border-radius:
   <div class="bar">
     <a class="brand" href="#" id="brandLink">
       <svg class="logo" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="url(#sg)"/><circle cx="19" cy="19" r="8" fill="none" stroke="#fff" stroke-width="3.2"/><path d="M25 25l6 6" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg>
-      <span class="word">Surai</span><span class="by">by Synthetix Lab</span>
+      <span class="word">Tabu</span><span class="by">by kosh</span>
     </a>
     <div class="search-box" id="hdrBox"></div>
     <div class="controls">
@@ -346,7 +346,7 @@ select{border:1px solid var(--border);background:var(--surface-2);border-radius:
   <section class="home-view" id="homeView">
     <a class="brand big" href="#" tabindex="-1" style="pointer-events:none">
       <svg class="logo" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="url(#sg)"/><circle cx="19" cy="19" r="8" fill="none" stroke="#fff" stroke-width="3.2"/><path d="M25 25l6 6" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg>
-      <span class="word">Surai</span><span class="by">by Synthetix Lab</span>
+      <span class="word">Tabu</span><span class="by">by Kosh</span>
     </a>
     <p class="tagline" data-i18n="tagline"></p>
     <div class="search-box" id="homeBox"></div>
@@ -366,7 +366,7 @@ select{border:1px solid var(--border);background:var(--surface-2);border-radius:
   <section class="results" id="resultsView" hidden><div class="col" id="results" aria-live="polite"></div></section>
 </main>
 
-<footer><span data-i18n="footer"></span> · <span class="by">by Synthetix Lab</span> · © 2026</footer>
+<footer><span data-i18n="footer"></span> · <span class="by">by kosh </span> · © 2026</footer>
 
 <div class="overlay" id="settingsModal"><div class="modal">
   <div class="modal-head"><h2 data-i18n="settings"></h2><button class="icon-btn" data-close><i class="ico" data-ico="x"></i></button></div>
@@ -411,7 +411,7 @@ select{border:1px solid var(--border);background:var(--surface-2);border-radius:
     <button class="jol-rail-btn" id="railRoute"><i class="ico" data-ico="route"></i><span data-i18n="railRoute"></span></button>
     <button class="jol-rail-btn" id="railBookmarks"><i class="ico" data-ico="bookmark"></i><span data-i18n="railBm"></span></button>
     <button class="jol-rail-btn" id="railLayers"><i class="ico" data-ico="layers"></i><span data-i18n="railLayers"></span></button>
-    <div class="jol-rail-logo" id="jolLogo" title="Surai Jol">J</div>
+    <div class="jol-rail-logo" id="jolLogo" title="Tabu jol">J</div>
   </div>
   <div class="jol-panel" id="jolPanel">
     <div class="jol-search">
@@ -457,7 +457,7 @@ const CONFIG={
 };
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const store={get(k,d){try{const v=localStorage.getItem('surai.'+k);return v===null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem('surai.'+k,JSON.stringify(v))}catch{}},del(k){try{localStorage.removeItem('surai.'+k)}catch{}}};
+const store={get(k,d){try{const v=localStorage.getItem('tabu.'+k);return v===null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem('tabu.'+k,JSON.stringify(v))}catch{}},del(k){try{localStorage.removeItem('tabu.'+k)}catch{}}};
 function el(tag,props={},...kids){const n=document.createElement(tag);for(const[k,v]of Object.entries(props)){if(v==null||v===false)continue;if(k==='class')n.className=v;else if(k==='text')n.textContent=v;else n.setAttribute(k,v===true?'':v)}kids.flat().forEach(c=>{if(c!=null&&c!==false)n.append(c)});return n}
 function safeUrl(u){try{const x=new URL(u);return(x.protocol==='http:'||x.protocol==='https:')?x.href:null}catch{return null}}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -491,22 +491,22 @@ const iconEl=n=>{const i=el('i',{class:'ico'});i.innerHTML=iconMarkup(n);return 
 const fillIcons=(r=document)=>$$('[data-ico]',r).forEach(n=>{if(!n.firstChild)n.innerHTML=iconMarkup(n.dataset.ico)});
 
 const I18N={
- ru:{tagline:'Поиск, карты и видео Казахстана',placeholder:'Искать в Surai',find:'Найти',login:'Войти',logout:'Выйти',settings:'Настройки',
+ ru:{tagline:'Поиск, карты и видео Казахстана',placeholder:'Искать в Tabu',find:'Найти',login:'Войти',logout:'Выйти',settings:'Настройки',
   tabAll:'Все',tabNews:'Новости',tabImages:'Картинки',tabVideos:'Видео',tabMaps:'Карты',
   popular:'Популярное',q1:'Новости Казахстана',q2:'Курс доллара к тенге',q3:'Погода в Астане',q4:'Рецепт бешбармака',q5:'Расписание поездов',q6:'Кафе рядом со мной',
-  recent:'Недавние запросы',aiTitle:'Ответ Surai',aiNote:'Ответ сгенерирован ИИ и может содержать ошибки',
+  recent:'Недавние запросы',aiTitle:'Ответ Tabu ai',aiNote:'Ответ сгенерирован ИИ и может содержать ошибки',
   resCount:'Результатов: {n}',imgCount:'Изображений: {n}',videoCount:'Видео: {n}',sec:'с',
-  noResTitle:'Ничего не нашлось',noResText:'Измените запрос или проверьте подключение к серверу Surai API.',
-  errTitle:'Не удалось выполнить поиск',errGeneric:'Сервер вернул ошибку.',errNetwork:'Бэкенд Surai API недоступен. Запустите server.js или укажите CONFIG.API_BASE.',
+  noResTitle:'Ничего не нашлось',noResText:'Измените запрос или проверьте подключение к серверу Tabu API.',
+  errTitle:'Не удалось выполнить поиск',errGeneric:'Сервер вернул ошибку.',errNetwork:'Бэкенд Tabu API недоступен. Запустите server.js или укажите CONFIG.API_BASE.',
   openOrig:'Открыть оригинал',gAppearance:'Оформление',lblTheme:'Тема',light:'Светлая',dark:'Тёмная',lblLang:'Язык',
   gSearch:'Поиск',setCount:'Результатов',setKz:'Приоритет Казахстана',setKzHint:'Сайты РК выше',setAi:'Ответ ИИ',
   gPrivacy:'Приватность',setHist:'История',clearHist:'Очистить',histCleared:'Очищено',
-  authTitle:'Вход в Surai',googleBtn:'Войти через Google',or:'или',tabLogin:'Вход',tabRegister:'Регистрация',
+  authTitle:'Вход в Tabu',googleBtn:'Войти через Google',or:'или',tabLogin:'Вход',tabRegister:'Регистрация',
   fName:'Имя',fEmail:'Почта',fPass:'Пароль',submitLogin:'Войти',submitRegister:'Создать аккаунт',authNote:'Вход по почте хранится локально в браузере.',
   badEmail:'Введите почту',shortPass:'Пароль от 6 символов',emailTaken:'Почта занята',badCreds:'Неверные данные',
   googleNotSet:'Google вход не настроен.',googleFail:'Ошибка входа Google.',welcome:'Добро пожаловать, {name}!',bye:'Вы вышли',
-  footer:'Surai — поиск, карты, видео',newsFeed:'Новости',
-  mapsSearchPh:'Поиск места, адреса или организации',mapWidgetTitle:'На карте Surai Jol',openFullMap:'Открыть Surai Jol',
+  footer:'Tabu — поиск, карты, видео',newsFeed:'Новости',
+  mapsSearchPh:'Поиск места, адреса или организации',mapWidgetTitle:'На карте Tabu Jol',openFullMap:'Открыть Tabu Jol',
   railSearch:'Поиск',railRoute:'Маршруты',railBm:'Закладки',railLayers:'Слои',
   results:'Результаты',locNotFound:'Не найдено. Попробуйте категорию или точный адрес.',
   routeInfo:'Маршрут',km:'км',min:'мин',youAreHere:'Вы здесь',locError:'Нет доступа к геолокации',routeError:'Маршрут не построен',
@@ -517,22 +517,22 @@ const I18N={
   revWrite:'Оставить отзыв',revSend:'Отправить',revThanks:'Спасибо за отзыв!',revName:'Ваше имя',
   catEat:'Поесть',catCoffee:'Кофе',catPharm:'Аптеки',catBank:'Банки',catShop:'Магазины',catHotel:'Отели',catFuel:'АЗС',catSport:'Спорт',
   adLabel:'Реклама',routeHint:'Кликните по карте — точка назначения',styleChanged:'Слой: {n}'},
- kk:{tagline:'Қазақстанның іздеу, карта және бейнесі',placeholder:'Surai арқылы іздеу',find:'Іздеу',login:'Кіру',logout:'Шығу',settings:'Баптаулар',
+ kk:{tagline:'Қазақстанның іздеу, карта және бейнесі',placeholder:'Tabu арқылы іздеу',find:'Іздеу',login:'Кіру',logout:'Шығу',settings:'Баптаулар',
   tabAll:'Барлығы',tabNews:'Жаңалықтар',tabImages:'Суреттер',tabVideos:'Бейне',tabMaps:'Карталар',
   popular:'Танымал',q1:'Қазақстан жаңалықтары',q2:'Доллар бағамы',q3:'Астана ауа райы',q4:'Бешбармақ рецепті',q5:'Пойыз кестесі',q6:'Жақын кафе',
-  recent:'Соңғы сұраныстар',aiTitle:'Surai жауабы',aiNote:'ЖИ жауабы, қателер болуы мүмкін',
+  recent:'Соңғы сұраныстар',aiTitle:'Tabu ai жауабы',aiNote:'ЖИ жауабы, қателер болуы мүмкін',
   resCount:'Нәтиже: {n}',imgCount:'Сурет: {n}',videoCount:'Бейне: {n}',sec:'сек',
-  noResTitle:'Табылмады',noResText:'Сұранысты өзгертіңіз немесе Surai API серверін тексеріңіз.',
-  errTitle:'Іздеу қатесі',errGeneric:'Сервер қатесі.',errNetwork:'Surai API қолжетімсіз. server.js қосыңыз.',
+  noResTitle:'Табылмады',noResText:'Сұранысты өзгертіңіз немесе Tabu API серверін тексеріңіз.',
+  errTitle:'Іздеу қатесі',errGeneric:'Сервер қатесі.',errNetwork:'Tabu API қолжетімсіз. server.js қосыңыз.',
   openOrig:'Түпнұсқаны ашу',gAppearance:'Көрініс',lblTheme:'Тақырып',light:'Ашық',dark:'Қараңғы',lblLang:'Тіл',
   gSearch:'Іздеу',setCount:'Нәтиже',setKz:'Қазақстан басымдығы',setKzHint:'ҚР сайттары жоғары',setAi:'ЖИ жауабы',
   gPrivacy:'Құпиялылық',setHist:'Тарих',clearHist:'Тазалау',histCleared:'Тазартылды',
-  authTitle:'Surai-ға кіру',googleBtn:'Google арқылы кіру',or:'немесе',tabLogin:'Кіру',tabRegister:'Тіркелу',
+  authTitle:'Tabu-ға кіру',googleBtn:'Google арқылы кіру',or:'немесе',tabLogin:'Кіру',tabRegister:'Тіркелу',
   fName:'Аты',fEmail:'Пошта',fPass:'Құпия сөз',submitLogin:'Кіру',submitRegister:'Аккаунт құру',authNote:'Пошта кіру браузерде сақталады.',
   badEmail:'Пошта енгізіңіз',shortPass:'6+ таңба',emailTaken:'Тіркелген',badCreds:'Қате деректер',
   googleNotSet:'Google бапталмаған.',googleFail:'Google қатесі.',welcome:'Қош келдіңіз, {name}!',bye:'Шықтыңыз',
-  footer:'Surai — іздеу, карта, бейне',newsFeed:'Жаңалықтар',
-  mapsSearchPh:'Орын, мекенжай немесе ұйым іздеу',mapWidgetTitle:'Surai Jol картасында',openFullMap:'Surai Jol ашу',
+  footer:'Tabu — іздеу, карта, бейне',newsFeed:'Жаңалықтар',
+  mapsSearchPh:'Орын, мекенжай немесе ұйым іздеу',mapWidgetTitle:'Tabu Jol картасында',openFullMap:'Tabu Jol ашу',
   railSearch:'Іздеу',railRoute:'Маршрут',railBm:'Бетбелгі',railLayers:'Қабат',
   results:'Нәтиже',locNotFound:'Табылмады.',routeInfo:'Маршрут',km:'км',min:'мин',youAreHere:'Сіз осында',locError:'Геолокация қатесі',routeError:'Маршрут құрылмады',
   bookmarks:'Бетбелгілер',noBookmarks:'Әлі бос.',save:'Сақтау',share:'Жіберу',contacts:'Контакт',info:'Ақпарат',reviews:'Пікір',
@@ -843,7 +843,7 @@ async function tavilySearch(q,tab,signal){
 
 /* ===== остальной Surai (без изменений логики) ===== */
 function applyI18n(){document.documentElement.lang=state.lang;$$('[data-i18n]').forEach(n=>n.textContent=t(n.dataset.i18n));$$('[data-i18n-ph]').forEach(n=>n.placeholder=t(n.dataset.i18nPh));$$('[data-lang]').forEach(b=>b.classList.toggle('on',b.dataset.lang===state.lang));$('#authSubmit').textContent=t(authMode==='login'?'submitLogin':'submitRegister');updateTitle();renderUser();loadNewsFeed()}
-function updateTitle(){document.title=state.q?state.q+' — Surai':'Surai — '+t('tagline')}
+function updateTitle(){document.title=state.q?state.q+' — Tabu':'Tabu — '+t('tagline')}
 function setLang(l){state.lang=l;store.set('lang',l);applyI18n();if(state.lastRender)state.lastRender()}
 function setTheme(th){state.theme=th;store.set('theme',th);document.documentElement.setAttribute('data-theme',th);$$('[data-theme-set]').forEach(b=>b.classList.toggle('on',b.dataset.themeSet===th))}
 let toastTimer;function toast(m){const n=$('#toast');n.textContent=m;n.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.classList.remove('show'),2600)}
