@@ -2,7 +2,7 @@ const fs = require('fs');
 
 const TAVILY = process.env.TAVILY_API_KEY || '';
 const REV_FILE = '/tmp/reviews.json';
-const UA = { 'User-Agent': 'SuraiSearch/1.0 (surai.kz)' };
+const UA = { 'User-Agent': 'TabuSearch/1.0 (nomad.digital)' };
 
 function send(res, code, obj) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -108,7 +108,7 @@ function isBlocked(q) {
   const s = simplify(String(q || '').toLowerCase());
   return BAD_WORDS.some(w => s.includes(simplify(w)));
 }
-const BLOCK_MSG = '⛔ Запрос отклонён политикой безопасности Surai: мы не выдаём контент 18+, сцены насилия, продажу наркотиков и оружия.';
+const BLOCK_MSG = '⛔ Запрос отклонён политикой безопасности Tabu: мы не выдаём контент 18+, сцены насилия, продажу наркотиков и оружия.';
 
 module.exports = async (req, res) => {
   const url = new URL(req.url, 'http://x');
